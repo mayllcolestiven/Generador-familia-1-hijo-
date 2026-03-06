@@ -349,6 +349,9 @@
         <label>Archivo Inferior (Derecha)</label>
         <input type="file" accept="image/*" class="btn-foto" onchange="cargarImagen(event, 'logo-inferior-grande')">
 
+        <label>Color Principal</label>
+        <input type="color" value="#2563eb" oninput="actualizarColores(this.value)">
+
         <label>Color Texto Cinta</label>
         <select onchange="document.documentElement.style.setProperty('--texto-cinta', this.value)">
             <option value="#000000">Negro</option>
