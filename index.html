@@ -349,14 +349,6 @@
         <label>Archivo Inferior (Derecha)</label>
         <input type="file" accept="image/*" class="btn-foto" onchange="cargarImagen(event, 'logo-inferior-grande')">
 
-        <label>Grado Izquierdo</label>
-        <input type="text" placeholder="Ej: K2" oninput="actualizarTexto('display-grado', this.value)">
-
-        <label>Grado Derecho</label>
-        <input type="text" placeholder="Ej: K3" oninput="actualizarTexto('display-grado-2', this.value)">
-        <label>Color Principal</label>
-        <input type="color" value="#2563eb" oninput="actualizarColores(this.value)">
-
         <label>Color Texto Cinta</label>
         <select onchange="document.documentElement.style.setProperty('--texto-cinta', this.value)">
             <option value="#000000">Negro</option>
