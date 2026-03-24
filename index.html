@@ -343,6 +343,25 @@
 
     <div id="panel-control">
         <h2>Nueva Plantilla</h2>
+
+        <div
+            style="background: #f3f4f6; padding: 10px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
+            <label>💾 Gestión de Borradores</label>
+            <input type="text" id="nombre-borrador" placeholder="Nombre de la familia (ej: Perez)"
+                style="margin-bottom: 5px;">
+            <div style="display: flex; gap: 5px;">
+                <button onclick="guardarProgreso()"
+                    style="flex: 1; background: #3b82f6; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; font-weight: bold;">GUARDAR</button>
+                <button onclick="eliminarBorrador()"
+                    style="background: #ef4444; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">🗑️</button>
+            </div>
+            <label style="margin-top: 10px;">Cargar Guardados:</label>
+            <select id="selector-guardados" onchange="cargarProgreso(this.value)">
+                <option value="">-- Seleccionar --</option>
+            </select>
+        </div>
+        <hr>
+
         <button class="btn-descargar" onclick="descargarPlantilla()">⬇️ DESCARGAR IMAGEN</button>
 
         <h3>Imágenes Globales</h3>
@@ -577,6 +596,161 @@
                 }
             });
         });
+
+        /* ====== LÓGICA DE GUARDADO (SOLO TEXTO) ====== */
+
+        function guardarProgreso() {
+            try {
+                const nombreInput = document.getElementById('nombre-borrador');
+                const nombreBorrador = nombreInput ? nombreInput.value.trim() : "";
+
+                if (!nombreBorrador) return alert("Escribe un nombre para el borrador (ej: Familia Pérez)");
+
+                const datos = {
+                    config: {
+                        principal: document.documentElement.style.getPropertyValue('--color-principal'),
+                        textoCinta: document.documentElement.style.getPropertyValue('--texto-cinta')
+                    },
+                    campos: {}
+                };
+
+                // Guardar solo los valores de texto de los inputs del panel
+                document.querySelectorAll('#panel-control input[type="text"]').forEach((input) => {
+                    const oninputAttr = input.getAttribute('oninput');
+                    if (oninputAttr) {
+                        const match = oninputAttr.match(/'([^']+)'/);
+                        if (match) datos.campos[match[1]] = input.value;
+                    }
+                });
+
+                const guardados = JSON.parse(localStorage.getItem('familias_guardadas') || '{}');
+                guardados[nombreBorrador] = datos;
+                localStorage.setItem('familias_guardadas', JSON.stringify(guardados));
+
+                if (typeof actualizarSelector === "function") actualizarSelector();
+
+                alert("✅ Texto y colores guardados. Las fotos deberás cargarlas al final.");
+            } catch (e) {
+                console.error(e);
+                alert("Error al guardar. Intenta limpiar la consola (F12).");
+            }
+        }
+
+        function cargarProgreso(nombre) {
+            if (!nombre) return;
+            const guardados = JSON.parse(localStorage.getItem('familias_guardadas') || '{}');
+            const datos = guardados[nombre];
+
+            if (!datos) return;
+
+            // 1. Restaurar Colores
+            if (datos.config) {
+                actualizarColores(datos.config.principal);
+                const colorPicker = document.querySelector('input[type="color"]');
+                if (colorPicker) colorPicker.value = datos.config.principal;
+                document.documentElement.style.setProperty('--texto-cinta', datos.config.textoCinta);
+            }
+
+            // 2. Restaurar Textos en los Inputs y en el Canvas
+            if (datos.campos) {
+                for (const [id, valor] of Object.entries(datos.campos)) {
+                    // Actualiza el texto visual en la plantilla
+                    actualizarTexto(id, valor);
+
+                    // Rellena el cuadrito de texto (input) correspondiente para que no aparezca vacío
+                    const input = Array.from(document.querySelectorAll('#panel-control input[type="text"]'))
+                        .find(i => {
+                            const attr = i.getAttribute('oninput');
+                            return attr && attr.includes(`'${id}'`);
+                        });
+                    if (input) input.value = valor;
+                }
+            }
+
+            // 3. MANTENER LOS CÍRCULOS VISIBLES
+            const IDsImagenes = ['logo-inferior-grande', 'img-1', 'img-2', 'img-3'];
+            IDsImagenes.forEach(id => {
+                const img = document.getElementById(id);
+                if (img) {
+                    // Si el ID es uno de los círculos de integrantes (img-1, img-2, img-3)
+                    // los dejamos visibles con display: block aunque no tengan foto.
+                    if (id.startsWith('img-')) {
+                        img.style.display = "block";
+                        // Si quieres que se vea el círculo vacío pero no un icono de "imagen rota",
+                        // podemos poner un pixel transparente o simplemente no tocar el src si ya está vacío.
+                    } else {
+                        // Para el logo inferior, sí lo ocultamos si no hay datos
+                        img.style.display = "none";
+                        const contInferior = document.getElementById('contenedor-inferior-grande');
+                        if (contInferior) contInferior.style.display = "none";
+                    }
+                }
+            });
+
+            // Poner el nombre en el campo de borrador actual
+            document.getElementById('nombre-borrador').value = nombre;
+        }
+
+        function actualizarSelector() {
+            const selector = document.getElementById('selector-guardados');
+            if (!selector) return;
+
+            const guardados = JSON.parse(localStorage.getItem('familias_guardadas') || '{}');
+
+            // Limpiar opciones actuales (dejando la primera)
+            selector.innerHTML = '<option value="">-- Seleccionar --</option>';
+
+            // Agregar las familias guardadas
+            Object.keys(guardados).forEach(nombre => {
+                const opt = document.createElement('option');
+                opt.value = nombre;
+                opt.textContent = nombre;
+                selector.appendChild(opt);
+            });
+        }
+
+        /* ====== FUNCIÓN PARA ELIMINAR BORRADORES ====== */
+        function eliminarBorrador() {
+            // 1. Obtener el nombre seleccionado en el menú desplegable
+            const selector = document.getElementById('selector-guardados');
+            const nombreAEliminar = selector.value;
+
+            // 2. Validar que haya algo seleccionado
+            if (!nombreAEliminar) {
+                return alert("Por favor, selecciona una familia del menú para poder eliminarla.");
+            }
+
+            // 3. Pedir confirmación al usuario
+            const confirmar = confirm(`¿Estás seguro de que quieres eliminar a la "${nombreAEliminar}"? Esta acción no se puede deshacer.`);
+
+            if (confirmar) {
+                try {
+                    // 4. Leer los datos actuales del localStorage
+                    const guardados = JSON.parse(localStorage.getItem('familias_guardadas') || '{}');
+
+                    // 5. Eliminar la clave específica
+                    delete guardados[nombreAEliminar];
+
+                    // 6. Guardar la lista actualizada de vuelta en el localStorage
+                    localStorage.setItem('familias_guardadas', JSON.stringify(guardados));
+
+                    // 7. Limpiar el input de nombre y actualizar el menú visual
+                    document.getElementById('nombre-borrador').value = "";
+                    actualizarSelector();
+
+                    alert("✅ Borrador eliminado correctamente.");
+                } catch (e) {
+                    console.error("Error al eliminar:", e);
+                    alert("Hubo un error al intentar eliminar el dato.");
+                }
+            }
+        }
+
+        // Llamarla una vez al cargar la página para que aparezcan los datos previos
+        window.onload = () => {
+            actualizarSelector();
+            // Si tenías otras funciones que cargar al inicio, agrégalas aquí
+        };
     </script>
 </body>
 
